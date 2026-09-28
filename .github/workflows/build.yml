@@ -29,7 +29,15 @@ jobs:
           repository: ${{ env.BYTEQC_REPO }}
           ref: ${{ env.BYTEQC_REF }}
           path: byteqc
+      # Kernels only change when byteqc's commit, the build script or the GPU
+      # architectures change; reuse them otherwise (packaging fixes then take minutes).
+      - uses: actions/cache@v4
+        id: kcache
+        with:
+          path: byteqc/${{ matrix.sub }}/lib/*.so
+          key: kernels-${{ matrix.sub }}-${{ env.BYTEQC_REF }}-${{ env.CUDA_ARCHS }}-${{ hashFiles('scripts/build_kernels.sh') }}
       - name: Compile ${{ matrix.sub }}
+        if: steps.kcache.outputs.cache-hit != 'true'
         run: scripts/build_kernels.sh ${{ matrix.sub }}
       - uses: actions/upload-artifact@v4
         with:

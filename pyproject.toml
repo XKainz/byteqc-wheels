@@ -23,8 +23,11 @@ gpu4pyscf = ["gpu4pyscf-cuda12x"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+# Don't let .gitignore files decide what ships: this repo ignores the byteqc/
+# checkout, and byteqc's own .gitignore ignores *.so. Both would empty the wheel.
+ignore-vcs = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["byteqc"]
-# byteqc's own .gitignore excludes *.so, which hatchling would otherwise honour
-artifacts = ["byteqc/**/*.so"]
-exclude = ["*.cu", "*.cuh", "*.c", "*.h", "CMakeLists.txt", "setup.py", "build/", ".git/"]
+exclude = ["__pycache__", "*.cu", "*.cuh", "*.c", "*.h", "CMakeLists.txt", "setup.py", "build/", ".git/"]
