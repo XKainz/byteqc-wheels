@@ -1,0 +1,92 @@
+name: build-wheel
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+env:
+  BYTEQC_REPO: bytedance/byteqc
+  BYTEQC_REF: 02af25481261ff29fa91ff5ba807728d6416a91b
+  CUDA_ARCHS: "70;80;90"
+  # parallel nvcc jobs; 1 is safe on private-repo runners (7 GB RAM), 2 on public (16 GB)
+  JOBS: ${{ github.event.repository.private && '1' || '2' }}
+
+jobs:
+  kernels:
+    # cuobc and cupbc compile in parallel; cupbc is the slow one
+    strategy:
+      fail-fast: false
+      matrix:
+        sub: [cuobc, cupbc]
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BYTEQC_REPO }}
+          ref: ${{ env.BYTEQC_REF }}
+          path: byteqc
+      - name: Compile ${{ matrix.sub }}
+        run: scripts/build_kernels.sh ${{ matrix.sub }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: so-${{ matrix.sub }}
+          path: byteqc/${{ matrix.sub }}/lib/*.so
+          if-no-files-found: error
+
+  wheel:
+    needs: kernels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BYTEQC_REPO }}
+          ref: ${{ env.BYTEQC_REF }}
+          path: byteqc
+      - uses: actions/download-artifact@v4
+        with: { name: so-cuobc, path: byteqc/cuobc/lib }
+      - uses: actions/download-artifact@v4
+        with: { name: so-cupbc, path: byteqc/cupbc/lib }
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get install -y patchelf
+      - run: scripts/package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/*.whl
+
+  check:
+    # No GPU on hosted runners: verify the wheel installs and every .so resolves
+    # its libraries from pip packages alone (libcuda comes from the driver at runtime).
+    needs: wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: wheel, path: dist }
+      - uses: astral-sh/setup-uv@v6
+      - run: |
+          uv venv -p 3.12 .venv
+          uv pip install -p .venv/bin/python dist/*.whl
+          missing=$(find .venv -path '*byteqc*' -name '*.so' -exec ldd {} \; | grep 'not found' | grep -v libcuda || true)
+          if [ -n "$missing" ]; then echo "$missing"; exit 1; fi
+          echo "all byteqc kernels resolve their libraries"
+      - name: Import (may fail without a GPU)
+        continue-on-error: true
+        run: .venv/bin/python -c "import byteqc, byteqc.cuobc, byteqc.cupbc, byteqc.cucc; print('import ok')"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [wheel, check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: wheel, path: dist }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.whl
