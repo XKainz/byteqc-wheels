@@ -1,7 +1,8 @@
 [project]
 name = "byteqc"
-version = "0.1.0+cu129"
-description = "ByteQC (github.com/bytedance/byteqc) with prebuilt CUDA 12.9 kernels for sm_70/80/90"
+# set by scripts/package.sh from the pinned upstream commit, see byteqc/_build_info.py
+dynamic = ["version"]
+description = "Unofficial build of ByteQC (github.com/bytedance/byteqc) with prebuilt CUDA 12.9 kernels; not affiliated with ByteDance"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
@@ -16,12 +17,19 @@ dependencies = [
     "h5py",
 ]
 
+[project.urls]
+Upstream = "https://github.com/bytedance/byteqc"
+Build-recipe = "https://github.com/XKainz/byteqc-wheels"
+
 [project.optional-dependencies]
 gpu4pyscf = ["gpu4pyscf-cuda12x"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "byteqc/_build_info.py"
 
 [tool.hatch.build]
 # Don't let .gitignore files decide what ships: this repo ignores the byteqc/

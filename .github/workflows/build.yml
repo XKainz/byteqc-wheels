@@ -95,6 +95,24 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with: { name: wheel, path: dist }
+      - name: Release notes
+        run: |
+          W=$(basename dist/*.whl)
+          URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${W//+/%2B}"
+          cat > notes.md <<EOF
+          Unofficial build of [ByteQC](https://github.com/${BYTEQC_REPO}) at upstream commit
+          [\`${BYTEQC_REF:0:7}\`](https://github.com/${BYTEQC_REPO}/commit/${BYTEQC_REF}),
+          CUDA 12.9 kernels for sm_70/80/90. Not affiliated with ByteDance.
+
+          \`\`\`bash
+          uv venv -p 3.12 byteqc-env
+          uv pip install -p byteqc-env/bin/python "${URL}"
+          \`\`\`
+
+          Tested on A100. On V100, cuTENSOR contractions fail (\`CUTENSOR_STATUS_NOT_SUPPORTED\`).
+          See the README for requirements and the list of modifications to upstream.
+          EOF
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*.whl
+          body_path: notes.md

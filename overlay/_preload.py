@@ -1,3 +1,6 @@
+# Added by byteqc-wheels (https://github.com/XKainz/byteqc-wheels); not part of
+# upstream ByteQC. Licensed under the Apache License, Version 2.0.
+#
 # Preload CUDA libraries shipped as pip wheels (cutensor-cu12, nvidia-cublas-cu12)
 # so cupy's cutensor bindings and byteqc's compiled kernels can resolve them
 # without LD_LIBRARY_PATH.
