@@ -17,8 +17,10 @@ export CUDACXX=/usr/local/cuda-12.9/bin/nvcc
 # byteqc's CMakeLists only searches $CUTENSOR_ROOT/{include,lib/12}, so pass the
 # header and library paths directly as CMake cache variables.
 PY=/opt/python/cp312-cp312/bin/python
-$PY -m pip install -q "cutensor-cu12==2.6.0"
-CT=$($PY -c "import cutensor, os; print(os.path.dirname(cutensor.__file__))")
+$PY -m pip install -q --root-user-action=ignore "cutensor-cu12==2.6.0"
+# cutensor has no __init__.py (namespace package), so __file__ is None; use __path__
+CT=$($PY -c "import cutensor; print(list(cutensor.__path__)[0])")
+test -f "$CT/include/cutensor.h" && test -f "$CT/lib/libcutensor.so.2"
 CUTENSOR_ARGS=(
   -DCUTENSOR_LIB=$CT/lib/libcutensor.so.2
   -DCUTENSOR_HEADER=$CT/include/cutensor.h
